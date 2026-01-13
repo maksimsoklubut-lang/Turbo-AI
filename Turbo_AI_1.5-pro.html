@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>TurboAI Studio (Pro Version 2.0)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* --- 1. VARIABLES & THEME (DeepSeek Style) --- */
+:root {
+  --bg-app: #0a0a0a;       
+  --bg-sidebar: #000000;   
+  --bg-panel: #161616;     
+  --bg-input: #1a1a1a;     
+  --border: #333333;       
+  
+  --primary: #4d6bfe;      
+  --accent: #2ea043;       
+  --danger: #da3633;       
+  
+  --text-main: #ededed;
+  --text-dim: #888888;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; outline: none; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-app);
+  color: var(--text-main);
+  margin: 0; padding: 0;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* --- 2. LAYOUT --- */
+.app-layout { display: flex; width: 100%; height: 100%; }
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 12px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.new-chat-btn {
+  width: 100%; background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border);
+  padding: 12px; border-radius: var(--radius); cursor: pointer; font-weight: 500;
+  transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.new-chat-btn:hover { background: #222; border-color: var(--text-dim); }
+
+.history-list { flex: 1; overflow-y: auto; margin-top: 15px; display: flex; flex-direction: column; gap: 4px; }
+
+.chat-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px; border-radius: 6px; cursor: pointer; color: var(--text-dim); font-size: 0.9rem;
+  transition: 0.1s; user-select: none;
+}
+.chat-item:hover { background: #1a1a1a; color: var(--text-main); }
+.chat-item.active { background: #222; color: white; border: 1px solid var(--border); }
+.chat-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.del-btn { opacity: 0; background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; }
+.chat-item:hover .del-btn { opacity: 1; }
+
+/* Main Content */
+.main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+
+/* Chat Area */
+#chat { 
+  flex: 1; overflow-y: auto; padding: 20px 10%; 
+  display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth;
+}
+
+/* Messages */
+.msg { max-width: 100%; line-height: 1.6; font-size: 15px; word-wrap: break-word; position: relative; }
+.me { align-self: flex-end; max-width: 85%; background: #202020; padding: 12px 18px; border-radius: 12px; border: 1px solid #333; }
+.bot { align-self: flex-start; max-width: 95%; width: 100%; padding: 0 10px; } 
+.sys { align-self: center; font-size: 13px; color: var(--text-dim); background: #111; padding: 6px 12px; border-radius: 20px; border: 1px dashed #333; margin: 10px 0; text-align: center; }
+
+/* --- ACTIONS (Edit/Delete) --- */
+.msg-actions {
+  position: absolute; top: -12px; right: 0;
+  background: #222; border: 1px solid #444; border-radius: 6px;
+  display: none; gap: 2px; padding: 2px; z-index: 10;
+}
+.msg:hover .msg-actions { display: flex; }
+.act-btn {
+  background: transparent; border: none; color: #888; cursor: pointer;
+  padding: 4px 6px; font-size: 12px; border-radius: 4px;
+}
+.act-btn:hover { background: #333; color: white; }
+.act-btn.del:hover { color: var(--danger); }
+
+/* Edit Textarea */
+.edit-textarea {
+  width: 100%; background: #111; color: #ddd; border: 1px solid #444;
+  padding: 8px; border-radius: 6px; resize: vertical; min-height: 60px;
+  font-family: inherit; margin-top: 5px; font-size: 14px;
+}
+
+/* --- 3. MARKDOWN STYLES --- */
+.msg strong { color: #fff; font-weight: 600; }
+.msg em { font-style: italic; color: #aaa; }
+.msg u { text-decoration: underline; text-underline-offset: 4px; }
+.msg s { text-decoration: line-through; opacity: 0.6; }
+.msg table { width: auto; min-width: 50%; border-collapse: collapse; margin: 16px 0; border: 1px solid #30363d; font-size: 14px; }
+.msg th { background: #161b22; text-align: left; font-weight: 600; color: var(--text-main); padding: 8px 12px; border: 1px solid #30363d; }
+.msg td { border: 1px solid #30363d; padding: 8px 12px; background: #0d1117; }
+.msg pre { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; margin: 16px 0; overflow-x: auto; }
+.code-header { display: flex; justify-content: space-between; align-items: center; background: #161b22; padding: 6px 12px; border-bottom: 1px solid #30363d; font-family: sans-serif; font-size: 12px; color: #8b949e; }
+.msg code { font-family: 'JetBrains Mono', monospace; font-size: 13px; tab-size: 2; }
+.msg pre code { display: block; padding: 12px; color: #e6edf3; overflow-x: auto; }
+.msg p > code { background: rgba(110,118,129,0.4); padding: 2px 5px; border-radius: 4px; font-size: 0.9em; color: #e6edf3; }
+
+/* --- 4. INPUT AREA --- */
+.input-area { background: var(--bg-app); border-top: 1px solid var(--border); padding: 0 10% 20px 10%; display: flex; flex-direction: column; gap: 0; }
+#tools-panel { display: flex; gap: 15px; padding: 8px 0; font-size: 12px; color: var(--text-dim); }
+#tools-panel label { cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; transition: 0.2s;}
+#tools-panel label:hover { color: var(--text-main); }
+#tools-panel input[type="checkbox"] { accent-color: var(--primary); }
+.input-box-wrapper { background: var(--bg-input); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; transition: border 0.2s; }
+.input-box-wrapper:focus-within { border-color: var(--text-dim); }
+#previewContainer { display: none; background: #222; padding: 6px 10px; margin-bottom: 8px; border-radius: 6px; font-size: 12px; color: var(--accent); }
+.file-row { display: flex; align-items: center; justify-content: space-between; }
+.input-row { display: flex; align-items: flex-end; gap: 10px; }
+#fileBtn { font-size: 1.2rem; cursor: pointer; color: var(--text-dim); padding: 5px; background: none; border: none; }
+#fileBtn:hover { color: var(--text-main); }
+#text { flex: 1; background: transparent; border: none; color: white; font-family: inherit; font-size: 16px; padding: 8px 0; resize: none; max-height: 200px; }
+#sendBtn { background: var(--primary); color: white; border: none; border-radius: 8px; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+#sendBtn:hover { opacity: 0.9; }
+#sendBtn:disabled { background: #333; cursor: not-allowed; }
+
+/* --- 5. SETTINGS MODAL --- */
+.settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+.settings-overlay.open { display: flex; }
+.settings-box { background: #111; border: 1px solid #333; width: 400px; padding: 25px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+.st-input { width: 100%; background: #222; border: 1px solid #333; color: white; padding: 10px; border-radius: 6px; margin: 5px 0 15px 0; }
+.btn-row { display: flex; gap: 10px; margin-top: 10px; }
+.btn-save { flex: 1; background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+.btn-cancel { flex: 1; background: #222; color: #aaa; border: 1px solid #333; padding: 10px; border-radius: 6px; cursor: pointer; }
+.btn-mem { width: 100%; background: transparent; border: 1px dashed #444; color: #666; padding: 8px; font-size: 12px; margin-top: 15px; cursor: pointer; }
+.custom-model-row { display: flex; gap: 8px; margin-top: 5px; }
+.custom-model-row input { flex: 1; }
+
+/* Loader */
+.typing-dot { display: inline-block; width: 4px; height: 4px; background: #aaa; border-radius: 50%; animation: type 1.4s infinite; margin: 0 1px; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes type { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* Mobile */
+@media(max-width: 768px) {
+  .sidebar { position: absolute; height: 100%; transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.open { transform: translateX(0); }
+  #chat, .input-area { padding-left: 15px; padding-right: 15px; }
+  .mobile-menu { display: block; position: absolute; top: 10px; left: 10px; z-index: 50; background: #000; border: 1px solid #333; color: white; padding: 5px 10px; border-radius: 4px; }
+}
+</style>
+</head>
+
+<body>
+
+<button class="mobile-menu" onclick="toggleSidebar()" style="display:none">☰</button>
+<button onclick="openSettings()" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; opacity:0.5; z-index:50;">⚙️</button>
+
+<div class="app-layout">
+  
+  <div class="sidebar" id="sidebar">
+    <button class="new-chat-btn" onclick="createNewChat()">
+      <span style="font-size:1.2em">+</span> Новый чат
+    </button>
+    <div class="history-list" id="historyList">
+      </div>
+  </div>
+
+  <div class="main-content">
+    <div id="chat"></div>
+
+    <div class="input-area">
+      <div id="tools-panel">
+        <label title="Ответы будут краткими и четкими">
+          <input type="checkbox" id="ecoMode"> 🍃 Экономия
+        </label>
+        <label title="ИИ использует интернет для поиска фактов">
+          <input type="checkbox" id="searchMode"> 🔍 Поиск (Web)
+        </label>
+      </div>
+
+      <div id="previewContainer">
+        <div class="file-row">
+          <span id="fileName"></span>
+          <button onclick="clearFile()" style="background:none; border:none; color:var(--danger); cursor:pointer;">✕</button>
+        </div>
+      </div>
+
+      <div class="input-box-wrapper">
+        <div class="input-row">
+          <input type="file" id="fileInput" style="display:none" accept="image/*,.txt,.js,.html,.css,.json">
+          <button id="fileBtn" onclick="document.getElementById('fileInput').click()">📎</button>
+          
+          <textarea id="text" rows="1" placeholder="Сообщение... (Ctrl+Enter для отправки)"></textarea>
+          
+          <button id="sendBtn" onclick="submitForm()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="settings-overlay" id="settings">
+  <div class="settings-box">
+    <h3 style="margin-top:0; color:white;">⚙️ Настройки</h3>
+    
+    <label style="font-size:12px; color:#888;">OpenRouter API Key</label>
+    <input type="password" id="setKey" class="st-input" placeholder="sk-or-...">
+
+    <label style="font-size:12px; color:#888;">Выбор модели</label>
+    <select id="setModel" class="st-input">
+      <option value="deepseek/deepseek-chat">DeepSeek V3 (Recommended)</option>
+      <option value="deepseek/deepseek-r1">DeepSeek R1 (Reasoning)</option>
+      <option value="openai/gpt-4o-mini">GPT-4o Mini (Fast)</option>
+      <option value="anthropic/claude-3-haiku">Claude 3 Haiku(Fast,Recommended)</option>
+      <option value="xiaomi/mimo-v2-flash:free">mimo v2 flash(free)</option>
+      <option value="mistralai/devstral-2512:free">mistral devstral(free)</option>
+      <option value="minimax/minimax-m2.1">minimax m2.1(cheap)</option>
+      <option value="cognitivecomputations/dolphin-mistral-24b-venice-edition:free">Venice:Uncencured</option>
+    </select>
+
+    <div style="background:#1a1a1a; padding:10px; border-radius:6px; margin-bottom:15px; border:1px dashed #333;">
+      <label style="font-size:11px; color:#aaa; display:block; margin-bottom:5px;">Добавить свою модель (OpenRouter ID):</label>
+      <div class="custom-model-row">
+        <input id="newModelId" class="st-input" placeholder="ID (напр. google/gemini-pro-1.5)" style="margin:0; font-size:12px;">
+        <input id="newModelName" class="st-input" placeholder="Название (напр. Gemini 1.5)" style="margin:0; font-size:12px;">
+      </div>
+      <button onclick="addCustomModel()" style="width:100%; margin-top:8px; background:#333; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-size:12px;">+ Добавить в список</button>
+    </div>
+
+    <label style="font-size:12px; color:#888;">Системный промпт</label>
+    <input id="setSystem" class="st-input" placeholder="Ты полезный ассистент..." value="You are a helpful assistant.">
+
+    <div class="btn-row">
+      <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+      <button class="btn-cancel" onclick="closeSettings()">Закрыть</button>
+    </div>
+
+    <button class="btn-mem" onclick="checkMemory()">🧠 Показать сжатую память чата</button>
+  </div>
+</div>
+
+<script>
+/* ================= 1. CORE DATA & STATE ================= */
+let chats = JSON.parse(localStorage.getItem('turbo_pro_chats')) || {};
+let currentChatId = localStorage.getItem('turbo_pro_id');
+let currentBase64File = null;
+let currentFileType = null;
+
+// Auto-init
+if (!currentChatId || !chats[currentChatId]) createNewChat(true);
+else { renderHistory(); loadChatUI(); }
+
+/* Store functions */
+function saveStore() {
+  localStorage.setItem('turbo_pro_chats', JSON.stringify(chats));
+  localStorage.setItem('turbo_pro_id', currentChatId);
+  renderHistory();
+}
+
+function createNewChat(silent = false) {
+  const id = 'chat_' + Date.now();
+  chats[id] = { 
+    title: 'Новый чат', 
+    messages: [], 
+    memory: "", 
+    timestamp: Date.now() 
+  };
+  currentChatId = id;
+  saveStore();
+  if(!silent) { loadChatUI(); if(window.innerWidth < 768) toggleSidebar(); }
+}
+
+function switchChat(id) { currentChatId = id; saveStore(); loadChatUI(); if(window.innerWidth < 768) toggleSidebar(); }
+
+function deleteChat(e, id) {
+  e.stopPropagation();
+  if(!confirm('Удалить чат?')) return;
+  delete chats[id];
+  if(id === currentChatId) {
+    const keys = Object.keys(chats);
+    if(keys.length) currentChatId = keys[0]; else createNewChat(true);
+  }
+  saveStore(); loadChatUI();
+}
+
+/* ================= 2. MESSAGE PARSING (MARKDOWN) ================= */
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function copyCode(btn) {
+  const code = btn.parentElement.nextElementSibling.innerText;
+  navigator.clipboard.writeText(code);
+  const original = btn.innerText; btn.innerText = "OK"; setTimeout(()=>btn.innerText=original, 1000);
+}
+
+function format(text) {
+  let s = esc(text);
+
+  // 1. Code Blocks
+  s = s.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><div class="code-header"><span>${lang || 'text'}</span><button onclick="copyCode(this)" style="background:none;border:none;color:#aaa;cursor:pointer;">Copy</button></div><code>${code.trim()}</code></pre>`;
+  });
+
+  // 2. Tables
+  const tableRegex = /((?:\|.+\|(?:\n|\r))+)/g;
+  s = s.replace(tableRegex, (match) => {
+    const rows = match.trim().split('\n').filter(r => !r.includes('---'));
+    let html = '<table>';
+    rows.forEach((row, i) => {
+      const cols = row.split('|').filter(c => c.trim() !== '');
+      const tag = i === 0 ? 'th' : 'td';
+      html += '<tr>' + cols.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+    });
+    return html + '</table>';
+  });
+
+  // 3. Inline Styles
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\[color:([\w#]+)\]([\s\S]*?)\[\/color\]/g, '<span style="color:$1">$2</span>');
+  s = s.replace(/~~([\s\S]*?)~~/g, "<s>$1</s>");
+  s = s.replace(/__([\s\S]*?)__/g, "<u>$1</u>");
+  s = s.replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*([\s\S]*?)\*/g, "<em>$1</em>");
+  s = s.replace(/\n/g, "<br>");
+  
+  return s;
+}
+
+/* ================= 3. LOGIC: MEMORY & VISION ================= */
+async function runCompression(chatId) {
+  const chat = chats[chatId];
+  if(chat.messages.length <= 8) return; 
+
+  const keep = 4; 
+  const toCompress = chat.messages.slice(0, chat.messages.length - keep);
+  const conversation = toCompress.map(m => `${m.role}: ${m.content}`).join("\n");
+
+  const prompt = `
+  Analyze this conversation part.
+  CURRENT MEMORY: "${chat.memory}"
+  NEW PART: "${conversation}"
+  TASK: Merge them into one concise summary. Keep user goals, facts, tech stack.
+  Output ONLY the summary.
+  `;
+
+  try {
+    const API_KEY = localStorage.getItem("or_key");
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer "+API_KEY },
+      body: JSON.stringify({ model: "deepseek/deepseek-chat", messages: [{role:"system", content: prompt}] })
+    });
+    const data = await res.json();
+    const newMem = data.choices[0].message.content;
+
+    chats[chatId].memory = newMem;
+    chats[chatId].messages = chat.messages.slice(-keep); 
+    saveStore();
+    console.log("Memory compressed:", newMem);
+  } catch(e) { console.error("Compression failed", e); }
+}
+
+async function analyzeImage(base64) {
+  const API_KEY = localStorage.getItem("or_key");
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer "+API_KEY },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini", 
+        messages: [{
+          role: "user", 
+          content: [
+            { type: "text", text: "Describe this image in detail. If code, write it out." },
+            { type: "image_url", image_url: { url: base64 } }
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    return data.choices[0].message.content;
+  } catch(e) { return "[Error analyzing image]"; }
+}
+
+/* ================= 4. MAIN SEND FUNCTION ================= */
+async function submitForm() {
+  const txtField = document.getElementById("text");
+  const txt = txtField.value.trim();
+  if(!txt && !currentBase64File) return;
+  
+  const API_KEY = localStorage.getItem("or_key");
+  if(!API_KEY) { openSettings(); return; }
+
+  // UI Updates
+  txtField.value = "";
+  txtField.style.height = "auto";
+  const sendBtn = document.getElementById("sendBtn");
+  sendBtn.disabled = true;
+  
+  // Add temp user msg (it will be redrawn by loadChatUI later)
+  addMsg(txt || "(Attachment)", "me", null);
+  showLoading();
+
+  // 1. Handle File
+  let contentToSend = txt;
+  if (currentBase64File) {
+    if (currentFileType.startsWith('image/')) {
+      const desc = await analyzeImage(currentBase64File);
+      contentToSend += `\n\n[USER ATTACHED IMAGE. DESCRIPTION: ${desc}]`;
+    } else {
+      contentToSend += `\n\n[ATTACHED FILE]:\n${currentBase64File}`;
+    }
+    clearFile();
+  }
+
+  // 2. Save User Msg
+  const chat = chats[currentChatId];
+  chat.messages.push({ role: "user", content: contentToSend });
+  if(chat.messages.length === 1) chat.title = contentToSend.substring(0, 30);
+  saveStore();
+
+  // 3. Prepare System Prompt
+  const isEco = document.getElementById("ecoMode").checked;
+  const isSearch = document.getElementById("searchMode").checked;
+  let userModel = localStorage.getItem("or_model") || "deepseek/deepseek-chat";
+  let systemContent = localStorage.getItem("or_system") || "You are a helpful assistant.";
+  
+  const fullSystemMsg = `
+[SYSTEM]
+${systemContent}
+[MEMORY]
+${chat.memory}
+[MODES]
+${isEco ? "ECONOMY: Be concise." : ""}
+${isSearch ? "SEARCH: Use web browsing logic or provide citations." : ""}
+  `;
+
+  // 4. API Call
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + API_KEY,
+        "HTTP-Referer": location.origin,
+        "X-Title": "TurboAI Pro"
+      },
+      body: JSON.stringify({
+        model: userModel,
+        messages: [
+          { role: "system", content: fullSystemMsg },
+          ...chat.messages 
+        ]
+      })
+    });
+    
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const reply = data.choices[0].message.content;
+    
+    hideLoading();
+    
+    // Save Assistant Msg
+    chat.messages.push({ role: "assistant", content: reply });
+    saveStore();
+
+    // Redraw entire chat with new messages (and indices for editing)
+    loadChatUI();
+    runCompression(currentChatId);
+
+  } catch(e) {
+    hideLoading();
+    addMsg("❌ Error: " + e.message, "sys");
+  } finally {
+    sendBtn.disabled = false;
+    txtField.focus();
+  }
+}
+
+/* ================= 5. UI HELPERS (UPDATED) ================= */
+function addMsg(text, type, index = null) {
+  const chatBox = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg " + type;
+  
+  let contentHtml = format(text);
+
+  // Add Action Buttons if this is a stored message
+  if (index !== null) {
+    const actionsHtml = `
+      <div class="msg-actions">
+        <button class="act-btn" onclick="editMsg(${index})" title="Редактировать">✎</button>
+        <button class="act-btn del" onclick="deleteMsg(${index})" title="Удалить">✕</button>
+      </div>`;
+    contentHtml += actionsHtml;
+  }
+
+  d.innerHTML = contentHtml;
+
+  d.innerHTML = contentHtml;
+  chatBox.appendChild(d);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function showLoading() {
+  const d = document.createElement("div"); d.id="loader"; d.className="msg bot";
+  d.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  document.getElementById("chat").appendChild(d);
+}
+function hideLoading() { const l = document.getElementById("loader"); if(l) l.remove(); }
+  
+function loadChatUI() {
+  const chatBox = document.getElementById("chat");
+  chatBox.innerHTML = "";
+  const chat = chats[currentChatId];
+  
+  if(chat.memory) {
+    const memDiv = document.createElement("div"); memDiv.className="sys";
+    memDiv.innerText = "⚡ Memory Active (History Compressed)";
+    chatBox.appendChild(memDiv);
+  }
+  
+  chat.messages.forEach((m, index) => {
+    let displayContent = m.content;
+    if(m.role === 'user' && m.content.includes("[USER ATTACHED IMAGE")) {
+      displayContent = displayContent.split("[USER ATTACHED IMAGE")[0] + " <i>(Image Attached)</i>";
+    }
+    // PASS INDEX HERE
+    addMsg(displayContent, m.role==='user'?'me':'bot', index);
+  });
+}
+
+function renderHistory() {
+  const list = document.getElementById("historyList");
+  list.innerHTML = "";
+  Object.keys(chats).sort((a,b)=>chats[b].timestamp-chats[a].timestamp).forEach(id => {
+    const el = document.createElement("div");
+    el.className = `chat-item ${id===currentChatId?'active':''}`;
+    el.innerHTML = `<span class="chat-title" onclick="switchChat('${id}')">${chats[id].title}</span> <button class="del-btn" onclick="deleteChat(event, '${id}')">✕</button>`;
+    list.appendChild(el);
+  });
+}
+
+/* ================= 6. EDIT & DELETE LOGIC ================= */
+function deleteMsg(index) {
+  if(!confirm("Удалить это сообщение?")) return;
+  chats[currentChatId].messages.splice(index, 1);
+  saveStore();
+  loadChatUI();
+}
+
+function editMsg(index) {
+  const chatBox = document.getElementById("chat");
+  const hasMem = !!chats[currentChatId].memory;
+  const domIndex = hasMem ? index + 1 : index; 
+  const msgDiv = chatBox.children[domIndex];
+  
+  if(!msgDiv) return;
+
+  const rawText = chats[currentChatId].messages[index].content;
+  
+  msgDiv.innerHTML = `
+  <textarea id="edit-area-${index}" class="edit-textarea">${rawText}</textarea>
+    <div style="margin-top:5px; text-align:right;">
+        <button onclick="saveEdit(${index})" style="background:var(--accent); color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">Сохранить</button>
+        <button onclick="loadChatUI()" style="background:#333; color:#ccc; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Отмена</button>
+    </div>
+  `;
+}
+
+function saveEdit(index) {
+  const txt = document.getElementById(`edit-area-${index}`).value;
+  chats[currentChatId].messages[index].content = txt;
+  saveStore();
+  loadChatUI();
+}
+
+/* ================= 7. CUSTOM MODELS LOGIC ================= */
+function loadCustomModels() {
+  const custom = JSON.parse(localStorage.getItem('turbo_custom_models')) || [];
+  const select = document.getElementById("setModel");
+  
+  // Clean old custom opts
+  const existingCustoms = select.querySelectorAll('.custom-opt');
+  existingCustoms.forEach(el => el.remove());
+
+  custom.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.innerText = "★ " + m.name; 
+    opt.className = "custom-opt";
+    select.appendChild(opt);
+  });
+}
+
+function addCustomModel() {
+  const idInput = document.getElementById("newModelId");
+  const nameInput = document.getElementById("newModelName");
+  const id = idInput.value.trim();
+  const name = nameInput.value.trim();
+
+  if(!id || !name) return alert("Заполните оба поля!");
+
+  const custom = JSON.parse(localStorage.getItem('turbo_custom_models')) || [];
+  custom.push({ id, name });
+  localStorage.setItem('turbo_custom_models', JSON.stringify(custom));
+
+  idInput.value = "";
+  nameInput.value = "";
+  
+  loadCustomModels();
+  document.getElementById("setModel").value = id;
+  alert(`Модель "${name}" добавлена!`);
+}
+
+/* File UI */
+document.getElementById('fileInput').onchange = function(e) {
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = (ev) => {
+    currentBase64File = ev.target.result;
+    currentFileType = f.type;
+    document.getElementById('previewContainer').style.display = 'block';
+    document.getElementById('fileName').innerText = "📎 " + f.name;
+  };
+  if(f.type.startsWith('image/')) r.readAsDataURL(f); else r.readAsText(f);
+}
+function clearFile() {
+  currentBase64File=null; currentFileType=null;
+  document.getElementById('fileInput').value="";
+  document.getElementById('previewContainer').style.display="none";
+}
+
+/* Textarea Auto-resize */
+const tx = document.getElementById("text");
+tx.addEventListener("input", function(){ this.style.height='auto'; this.style.height=(this.scrollHeight)+'px'; });
+tx.addEventListener("keydown", function(e){ if(e.ctrlKey && e.key === 'Enter') submitForm(); });
+
+/* Settings */
+function openSettings() { 
+  document.getElementById("settings").classList.add("open"); 
+  loadCustomModels(); // Load custom models on open
+  document.getElementById("setKey").value = localStorage.getItem("or_key")||""; 
+  document.getElementById("setModel").value = localStorage.getItem("or_model")||"deepseek/deepseek-chat"; 
+}
+function closeSettings() { document.getElementById("settings").classList.remove("open"); }
+function saveSettings() {
+  localStorage.setItem("or_key", document.getElementById("setKey").value.trim());
+  localStorage.setItem("or_model", document.getElementById("setModel").value);
+  localStorage.setItem("or_system", document.getElementById("setSystem").value);
+  closeSettings();
+}
+function checkMemory() { alert("Сжатый контекст чата:\n\n" + (chats[currentChatId].memory || "Пусто")); }
+function toggleSidebar() { document.getElementById("sidebar").classList.toggle("open"); }
+
+// First Run
+if(!localStorage.getItem("or_key")) setTimeout(openSettings, 500);
+
+</script>
+</body>
+</html>
