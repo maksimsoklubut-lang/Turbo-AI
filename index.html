@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>TurboAI Studio (Pro Version 2.0)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<button class="mobile-menu" onclick="toggleSidebar()" style="display:none">☰</button>
+<button onclick="openSettings()" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; opacity:0.5; z-index:50;">⚙️</button>
+    <!-- Computer editor icon added -->
+    <button id="editorBtn" onclick="openEditor()" style="position:absolute; top:10px; right:60px; background:none; border:none; font-size:1.5rem; cursor:pointer; opacity:0.5; z-index:50;">🖥️</button>
+
+<div class="app-layout">
+  
+  <div class="sidebar" id="sidebar">
+    <button class="new-chat-btn" onclick="createNewChat()">
+      <span style="font-size:1.2em">+</span> Новый чат
+    </button>
+    <div class="history-list" id="historyList">
+      </div>
+  </div>
+
+  <div class="main-content">
+    <div id="chat"></div>
+
+    <div class="input-area">
+      <div id="tools-panel">
+        <label title="Ответы будут краткими и четкими">
+          <input type="checkbox" id="ecoMode"> 🍃 Экономия
+        </label>
+        <label title="ИИ использует интернет для поиска фактов">
+          <input type="checkbox" id="searchMode"> 🔍 Поиск (Web)
+        </label>
+      </div>
+
+      <div id="previewContainer">
+        <div class="file-row">
+          <span id="fileName"></span>
+          <button onclick="clearFile()" style="background:none; border:none; color:var(--danger); cursor:pointer;">✕</button>
+        </div>
+      </div>
+
+      <div class="input-box-wrapper">
+        <div class="input-row">
+          <input type="file" id="fileInput" style="display:none" accept="image/*,.txt,.js,.html,.css,.json">
+          <button id="fileBtn" onclick="document.getElementById('fileInput').click()">📎</button>
+          
+          <textarea id="text" rows="1" placeholder="Сообщение... (Ctrl+Enter для отправки)"></textarea>
+          
+          <button id="sendBtn" onclick="submitForm()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="settings-overlay" id="settings">
+  <div class="settings-box">
+    <h3 style="margin-top:0; color:white;">⚙️ Настройки</h3>
+    
+    <label style="font-size:12px; color:#888;">OpenRouter API Key</label>
+    <input type="password" id="setKey" class="st-input" placeholder="sk-or-...">
+
+    <label style="font-size:12px; color:#888;">Выбор модели</label>
+    <select id="setModel" class="st-input">
+      <option value="deepseek/deepseek-chat">DeepSeek V3 (Recommended)</option>
+      <option value="deepseek/deepseek-r1">DeepSeek R1 (Reasoning)</option>
+      <option value="openai/gpt-4o-mini">GPT-4o Mini (Fast)</option>
+      <option value="anthropic/claude-3-haiku">Claude 3 Haiku(Fast,Recommended)</option>
+      <option value="xiaomi/mimo-v2-flash:free">mimo v2 flash(free)</option>
+      <option value="mistralai/devstral-2512:free">mistral devstral(free)</option>
+      <option value="minimax/minimax-m2.1">minimax m2.1(cheap)</option>
+      <option value="cognitivecomputations/dolphin-mistral-24b-venice-edition:free">Venice:Uncencured</option>
+    </select>
+
+    <div style="background:#1a1a1a; padding:10px; border-radius:6px; margin-bottom:15px; border:1px dashed #333;">
+      <label style="font-size:11px; color:#aaa; display:block; margin-bottom:5px;">Добавить свою модель (OpenRouter ID):</label>
+      <div class="custom-model-row">
+        <input id="newModelId" class="st-input" placeholder="ID (напр. google/gemini-pro-1.5)" style="margin:0; font-size:12px;">
+        <input id="newModelName" class="st-input" placeholder="Название (напр. Gemini 1.5)" style="margin:0; font-size:12px;">
+      </div>
+      <button onclick="addCustomModel()" style="width:100%; margin-top:8px; background:#333; color:white; border:none; padding:6px; border-radius:4px; cursor:pointer; font-size:12px;">+ Добавить в список</button>
+    </div>
+
+    <label style="font-size:12px; color:#888;">Системный промпт</label>
+    <input id="setSystem" class="st-input" placeholder="Ты полезный ассистент..." value="You are a helpful assistant.">
+
+    <div class="btn-row">
+      <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+      <button class="btn-cancel" onclick="closeSettings()">Закрыть</button>
+    </div>
+
+    <button class="btn-mem" onclick="checkMemory()">🧠 Показать сжатую память чата</button>
+  </div>
+</div>
+
+<!-- Editor Overlay for HTML/CSS/JS with console -->
+<div id="editorOverlay" class="editor-overlay">
+  <div class="editor-box">
+    <div class="editor-title-bar">
+      <span>🖥️ Редактор</span>
+      <button class="editor-close" onclick="closeEditor()">✕</button>
+    </div>
+    <div class="editor-toolbar">
+      <button id="btnNewFile" onclick="createNewFile()">+ New File</button>
+      <button id="btnUploadFile" onclick="document.getElementById('fileUploadInput').click()">Upload</button>
+      <button id="btnDownloadZip" onclick="downloadZip()">Download ZIP</button>
+      <button id="btnPreview" onclick="showPreview()">Preview</button>
+      <input type="file" id="fileUploadInput" multiple accept=".html,.htm,.css,.js,.json,.txt" style="display:none" onchange="handleFileUpload(event)">
+    </div>
+    <div id="editorTabs" class="tab-bar"></div>
+    <div id="editorPanes" class="panes-wrapper"></div>
+  </div>
+</div>
+
+    <!-- External libraries for zip creation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
